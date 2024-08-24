@@ -6,7 +6,7 @@ from pathlib import Path
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description="Picamera2 Motion Detection with MJPEG Streaming")
     parser.add_argument("--config-file", type=str, help="Path to configuration file", required=False)
-    parser.add_argument("--circular-buffer", action="store_true", help="Enable circular buffer recording on motion detection")
+    parser.add_argument("--record-motion", action="store_true", help="Enable circular buffer recording on motion detection")
     parser.add_argument("--bounding-box", action="store_true", help="Draw bounding boxes around detected motion")
     parser.add_argument("--mqtt-broker", type=str, help="MQTT broker address to publish motion detection events")
     parser.add_argument("--log-level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")

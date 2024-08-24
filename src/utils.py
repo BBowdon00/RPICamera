@@ -4,7 +4,7 @@ import time
 
 def setup_logging(level):
     logging.basicConfig(level=getattr(logging, level.upper(), "INFO"),
-                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)')
 
 def overlay_timestamp(img, font):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")

@@ -8,9 +8,10 @@ from threading import Condition
 from picamera2 import Picamera2
 from picamera2.encoders import MJPEGEncoder, H264Encoder
 from picamera2.outputs import FileOutput, CircularOutput
-from PIL import Image
+from PIL import Image,ImageFont
 from motion_detection import MotionDetector
 from utils import overlay_timestamp
+import os
 
 # HTML page for the server
 PAGE = """
@@ -26,15 +27,20 @@ PAGE = """
 """
 
 class StreamingOutput(io.BufferedIOBase):
-    def __init__(self, font, motion_detector, mqtt_handler=None, draw_bbox=False, circular_buffer=False):
+    def __init__(self, encoder, motion_detector, mqtt_handler, config):
+        
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if not os.path.exists(font_path):
+            logging.error(f"Font not found at {font_path}. Exiting.")
+            return
+        self.font = ImageFont.truetype(font_path, 24)
+        self.encoder = encoder
         self.frame = None
         self.condition = Condition()
-        self.font = font
         self.motion_detector = motion_detector
         self.mqtt_handler = mqtt_handler
-        self.draw_bbox = draw_bbox
-        self.circular_buffer = circular_buffer
-        self.encoding = False
+        self.draw_bbox = config.get("bounding_box")
+        self.record_motion =  config.get("record_motion")
 
     def write(self, buf):
         with self.condition:
@@ -51,9 +57,8 @@ class StreamingOutput(io.BufferedIOBase):
                     if self.draw_bbox:
                         frame = self.motion_detector.draw_bounding_boxes(frame, gray)
 
-                    if not self.encoding and self.circular_buffer:
-                        encoder.output.start()
-                        self.encoding = True
+                    if self.record_motion:
+                        self.encoder.output.start()
                         logging.info("Started recording due to motion detection")
 
                 img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))

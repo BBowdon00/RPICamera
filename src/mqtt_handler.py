@@ -3,12 +3,12 @@ import logging
 
 class MqttHandler:
     def __init__(self, broker_address):
-        self.client = mqtt.Client()
+        self.client = mqtt.Client(client_id="TentRPI", clean_session=True, protocol=mqtt.MQTTv311,callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
         self.broker_address = broker_address
 
     def connect(self):
         try:
-            self.client.connect(self.broker_address)
+            self.client.connect(self.broker_address,1883,60)
             self.client.loop_start()
         except Exception as e:
             logging.error(f"Failed to connect to MQTT broker: {e}")
