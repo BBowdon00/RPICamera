@@ -50,7 +50,7 @@ class StreamingOutput(io.BufferedIOBase):
 
                 # Motion detection
                 motion_detected, gray = self.motion_detector.detect_motion(frame)
-                if motion_detected:
+                if motion_detected or self.motion_detector.previous_frame is None:
                     if self.mqtt_handler:
                         self.mqtt_handler.publish_motion_event()
 

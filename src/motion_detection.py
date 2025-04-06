@@ -31,7 +31,6 @@ class MotionDetector:
         else:
             logging.debug("Previous frame is not initialized. Skipping motion detection for this frame.")
 
-        self.previous_frame = gray.copy()  # Ensure it's updated here when bounding box isn't run
         return motion_detected, gray  # Return gray instead of original frame
     def update_reference(self,gray):
         self.previous_frame = gray.copy()
@@ -48,7 +47,7 @@ class MotionDetector:
                 if cv2.contourArea(contour) < 500:
                     continue
                 (x, y, w, h) = cv2.boundingRect(contour)
-                logging.debug("Drawing rect")
+                #logging.debug("Drawing rect")
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         else:
             logging.warning("Cannot draw bounding boxes due to frame size mismatch or uninitialized previous_frame.")
