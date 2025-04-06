@@ -61,7 +61,7 @@ class StreamingOutput(io.BufferedIOBase):
                         self.encoder.output.start()
                         logging.info("Started recording due to motion detection")
 
-                img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                img = Image.fromarray(frame)
                 img = overlay_timestamp(img, self.font)
                 output = io.BytesIO()
                 img.save(output, format="JPEG")

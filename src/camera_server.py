@@ -20,14 +20,14 @@ def start_camera_server(config):
     if mqtt_handler:
         mqtt_handler.connect()
 
-    picamera2.configure(picamera2.create_video_configuration(main={"size": (1280, 720)}))
-
+    picamera2.configure(picamera2.create_video_configuration(main={"format": "RGB888","size": (1280, 720)}))
+    
     encoder = None
     if config.get('record_motion'):
         encoder = H264Encoder(bitrate=1000000)
         encoder.output = CircularOutput()
         picamera2.encoder = encoder
-
+    picamera2.set_controls({"AwbEnable": True})
     output = StreamingOutput(encoder,motion_detector, mqtt_handler,config)
     picamera2.start_recording(MJPEGEncoder(bitrate=10000000), FileOutput(output))
 
