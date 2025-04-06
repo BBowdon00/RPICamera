@@ -34,23 +34,6 @@ class MotionDetector:
         return motion_detected, gray  # Return gray instead of original frame
     def update_reference(self,gray):
         self.previous_frame = gray.copy()
-    def get_motion_boxes(self, gray):
-        if self.previous_frame is None or gray.shape != self.previous_frame.shape:
-            return []
-
-        frame_delta = cv2.absdiff(self.previous_frame, gray)
-        thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)[1]
-        thresh = cv2.dilate(thresh, None, iterations=2)
-        contours, _ = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        boxes = []
-        for contour in contours:
-            if cv2.contourArea(contour) < 500:
-                continue
-            boxes.append(cv2.boundingRect(contour))
-        return boxes
-
-
     def draw_bounding_boxes(self, frame, gray):
         if self.previous_frame is not None and gray.shape == self.previous_frame.shape:
             frame_delta = cv2.absdiff(self.previous_frame, gray)

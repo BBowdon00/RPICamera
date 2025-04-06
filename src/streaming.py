@@ -11,7 +11,6 @@ from picamera2.outputs import FileOutput, CircularOutput
 from PIL import Image,ImageFont
 from motion_detection import MotionDetector
 from utils import overlay_timestamp
-from tracker import TrackerManager
 import os
 
 # HTML page for the server
@@ -42,7 +41,7 @@ class StreamingOutput(io.BufferedIOBase):
         self.mqtt_handler = mqtt_handler
         self.draw_bbox = config.get("draw_box")
         self.record_motion =  config.get("record_motion")
-        self.tracker_manager = TrackerManager(tracker_type="CSRT")
+
     def write(self, buf):
         with self.condition:
             try:
@@ -56,13 +55,7 @@ class StreamingOutput(io.BufferedIOBase):
                         self.mqtt_handler.publish_motion_event()
 
                     if self.draw_bbox:
-                        match_boxes  = self.motion_detector.get_motion_boxes(gray)
-                        for bbox in match_boxes:
-                            self.tracker_manager.add(frame,bbox)
-                        tracked_boxes = self.tracker_manager.update_all(frame)
-                        for obj_id, (x, y, w, h) in tracked_boxes.items():
-                            cv2.rectangle(frame, (int(x), int(y)), (int(x + w), int(y + h)), (0, 255, 0), 2)
-                            cv2.putText(frame, obj_id, (int(x), int(y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                        frame = self.motion_detector.draw_bounding_boxes(frame, gray)
                     self.motion_detector.update_reference(gray)
                     if self.record_motion:
                         self.encoder.output.start()
