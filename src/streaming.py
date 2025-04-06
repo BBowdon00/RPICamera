@@ -39,7 +39,7 @@ class StreamingOutput(io.BufferedIOBase):
         self.condition = Condition()
         self.motion_detector = motion_detector
         self.mqtt_handler = mqtt_handler
-        self.draw_bbox = config.get("bounding_box")
+        self.draw_bbox = config.get("draw_box")
         self.record_motion =  config.get("record_motion")
 
     def write(self, buf):
@@ -56,7 +56,7 @@ class StreamingOutput(io.BufferedIOBase):
 
                     if self.draw_bbox:
                         frame = self.motion_detector.draw_bounding_boxes(frame, gray)
-
+                    self.motion_detector.update_reference(gray)
                     if self.record_motion:
                         self.encoder.output.start()
                         logging.info("Started recording due to motion detection")
