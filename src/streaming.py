@@ -8,7 +8,10 @@ from threading import Condition
 from picamera2 import Picamera2
 from picamera2.encoders import MJPEGEncoder, H264Encoder
 from picamera2.outputs import FileOutput, CircularOutput
+
+
 from PIL import Image,ImageFont
+from motion_recorder import MotionRecorder
 from motion_detection import MotionDetector
 from utils import overlay_timestamp
 import os
@@ -40,7 +43,8 @@ class StreamingOutput(io.BufferedIOBase):
         self.motion_detector = motion_detector
         self.mqtt_handler = mqtt_handler
         self.draw_bbox = config.get("draw_box")
-        self.record_motion =  config.get("record_motion")
+        self.record_motion = config.get("record_motion")
+        self.recorder = MotionRecorder(encoder_output=self.encoder.output,save_dir=os.path.expanduser("~/Camera/captured_images"),timeout=2,buffer_seconds=3)
 
     def write(self, buf):
         with self.condition:
@@ -57,10 +61,8 @@ class StreamingOutput(io.BufferedIOBase):
                     if self.draw_bbox:
                         frame = self.motion_detector.draw_bounding_boxes(frame, gray)
                     self.motion_detector.update_reference(gray)
-                    if self.record_motion:
-                        self.encoder.output.start()
-                        logging.info("Started recording due to motion detection")
-
+                if self.record_motion:
+                    self.recorder.update(motion_detected)
                 img = Image.fromarray(frame)
                 img = overlay_timestamp(img, self.font)
                 output = io.BytesIO()
