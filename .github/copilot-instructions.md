@@ -66,8 +66,11 @@ Key APIs used in this project:
 - `CircularOutput()` - Circular buffer for motion-triggered recording
 
 ## Hardware Requirements
-- Raspberry Pi (any model with camera support)
-- Raspberry Pi Camera Module
+- Raspberry Pi 4 (recommended) or Pi 3B+
+- **Raspberry Pi Camera Module 3 Wide** (imx708_wide sensor)
+  - Has autofocus (motorized lens) - major upgrade from Module 2
+  - Wide angle lens (120° diagonal FOV) ideal for greenhouse coverage
+  - 11.9MP sensor, HDR support
 - Font: `/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf`
 
 ## Common Tasks
@@ -85,6 +88,42 @@ Modify `MqttHandler.publish_motion_event()` method
 
 ### Changing Video Resolution
 Update `picamera2.create_video_configuration(main={"size": (WIDTH, HEIGHT)})`
+
+### Camera Module 3 Wide Autofocus Settings
+The system is configured for continuous autofocus optimized for greenhouse monitoring.
+
+**Autofocus Controls** (in `camera_server.py` video_config):
+- **AfMode**: 0=Manual, 1=Auto (single shot), 2=Continuous (currently set)
+  - Continuous mode automatically refocuses as plants grow or move
+- **AfSpeed**: 0=Normal (current), 1=Fast
+  - Normal provides stable, smooth focusing without hunting
+- **AfRange**: 0=Normal (10cm-∞), 1=Macro (<10cm), 2=Full
+  - Normal is ideal for whole plant viewing
+  - Use Macro if camera is very close for leaf detail
+- **AfTrigger**: 0=Start AF, 1=Cancel
+  - Called after configure() to activate autofocus system
+
+**Exposure & White Balance for Grow Lights:**
+- **AwbMode**: 0=Auto (current), 1=Incandescent, 2=Tungsten, 3=Fluorescent, 4=Indoor, 5=Daylight
+  - Try mode 1 (Incandescent) if colors look purple/pink under LED grow lights
+  - Try mode 3 (Fluorescent) for white/cool LED lights
+- **ExposureTime**: 0=Auto (current)
+  - Set to 8333µs to eliminate 120Hz flicker (North America AC)
+  - Set to 10000µs to eliminate 100Hz flicker (Europe/Asia AC)
+  - Helps prevent banding/flicker from LED drivers
+
+**Image Quality Tuning:**
+- **Contrast**: 1.1 (slightly boosted for plant detail)
+- **Saturation**: 1.0 (neutral - increase to 1.2 for more vibrant greens)
+- **Sharpness**: 1.2 (enhanced for leaf edges and texture)
+- **Brightness**: 0.0 (adjust ±0.2 if image too dark/bright)
+
+**Common Scenarios:**
+1. **Plants look washed out**: Increase Saturation to 1.2-1.3
+2. **Purple/pink color cast**: Change AwbMode to 1 (Incandescent)
+3. **Flickering/banding visible**: Set ExposureTime to 8333 or 10000
+4. **Too blurry/soft**: Increase Sharpness to 1.5-2.0
+5. **Close-up inspection**: Change AfRange to 1 (Macro mode)
 
 ## Code Patterns
 

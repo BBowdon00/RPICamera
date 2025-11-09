@@ -15,8 +15,12 @@ Real-time camera monitoring system for hydroponic grow environments using Raspbe
 
 ## Hardware Requirements
 - Raspberry Pi 4 (recommended) or Pi 3B+
-- Raspberry Pi Camera Module v2 or v3 (HQ Camera also supported)
-- Adequate lighting for grow tent monitoring
+- **Raspberry Pi Camera Module 3 Wide** (recommended)
+  - Autofocus capability (motorized lens)
+  - 120° diagonal field of view - ideal for greenhouse coverage
+  - 11.9MP sensor with HDR support
+  - Also supports: Camera Module v2, v3 standard, HQ Camera
+- Adequate lighting for grow tent monitoring (LED grow lights compatible)
 
 ## Installation
 1. Ensure you have Raspberry Pi OS (64-bit recommended) with camera support enabled
@@ -95,6 +99,33 @@ Edit `src/motion_detection.py` to adjust:
 - `threshold=7.0` - Motion sensitivity (lower = more sensitive)
 - `log_interval=5` - Seconds between motion log messages
 
+### Camera Module 3 Settings (Autofocus & Greenhouse Optimization)
+The system is pre-configured for Camera Module 3 Wide with optimal settings for hydroponic monitoring.
+
+Edit `src/camera_server.py` video_config controls to customize:
+
+**Autofocus:**
+- `AfMode: 2` - Continuous autofocus (keeps plants in focus as they grow)
+- `AfSpeed: 0` - Normal speed (stable focusing)
+- `AfRange: 0` - Normal range (10cm to infinity)
+  - Change to `1` for Macro mode if camera is very close to plants
+
+**Color & White Balance for Grow Lights:**
+- `AwbMode: 1` - Auto white balance
+  - Try `1` (Incandescent) if colors look purple/pink under LED lights
+  - Try `3` (Fluorescent) for white/cool LED lights
+- `Saturation: 1.0` - Increase to 1.2-1.3 for more vibrant plant colors
+
+**Eliminate LED Flicker:**
+- `ExposureTime: 0` - Auto exposure
+  - Set to `8333` to eliminate 120Hz flicker (North America)
+  - Set to `10000` to eliminate 100Hz flicker (Europe/Asia)
+
+**Image Quality:**
+- `Contrast: 1.1` - Slightly enhanced for plant detail
+- `Sharpness: 1.2` - Enhanced for leaf edges and texture
+- `Brightness: 0.0` - Adjust ±0.2 if too dark/bright
+
 ## System Integration
 This camera system is part of a larger hydroponic monitoring ecosystem:
 - **MQTT Topic**: `camera/motion` - Publishes motion detection events
@@ -109,9 +140,13 @@ This camera system is part of a larger hydroponic monitoring ecosystem:
 
 ## Troubleshooting
 - **No stream**: Check camera is enabled with `sudo raspi-config`
-- **High CPU**: Lower resolution or frame rate in `camera_server.py`
+- **High CPU**: Lower resolution or frame rate in `camera_server.py`, or use `--disable-motion`
 - **Motion too sensitive**: Increase threshold in `motion_detection.py`
 - **MQTT not working**: Verify broker address and network connectivity
+- **Blurry image**: Camera Module 3 autofocus may need time to settle (wait 2-3 seconds)
+- **Purple/pink color cast**: Change `AwbMode` to `1` in camera_server.py
+- **Flickering/banding**: Set `ExposureTime` to `8333` or `10000` to match AC frequency
+- **Framerate is 20fps not 30fps**: This is normal - camera adjusts based on available bandwidth with 3 streams (main, lores, raw)
 
 ## Contributing
 Contributions are welcome. Please fork the repository and submit a pull request with your improvements.
