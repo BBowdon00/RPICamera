@@ -3,6 +3,7 @@ HLS (HTTP Live Streaming) output handler for H.264 video streaming.
 Generates .m3u8 playlist and .ts segment files for adaptive bitrate streaming.
 """
 import os
+import io
 import time
 import logging
 from threading import Lock
@@ -125,10 +126,11 @@ class HLSOutput:
                 logging.error(f"Failed to write playlist: {e}")
 
 
-class HLSSegmentOutput:
+class HLSSegmentOutput(io.BufferedIOBase):
     """
     File output for HLS segments that interfaces with picamera2.
     Writes segments and manages the HLS playlist.
+    Inherits from io.BufferedIOBase to work with FileOutput.
     """
     
     def __init__(self, hls_manager, segment_duration=2):
