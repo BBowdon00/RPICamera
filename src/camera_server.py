@@ -56,9 +56,6 @@ def start_camera_server(config):
     )
     picamera2.configure(video_config)
     
-    # Trigger autofocus to start
-    picamera2.set_controls({"AfTrigger": 0})
-    
     # Set up encoder for motion recording if enabled
     encoder = None
     circular_output = None
@@ -74,6 +71,14 @@ def start_camera_server(config):
     if config.get('record_motion'):
         picamera2.start_encoder(encoder, circular_output)
     picamera2.start_recording(MJPEGEncoder(bitrate=10000000), FileOutput(output))
+    
+    # Trigger autofocus after camera starts (only for Camera Module 3)
+    # AfMode=2 (Continuous) means this will continuously refocus
+    try:
+        picamera2.set_controls({"AfTrigger": 0})
+        logging.info("Autofocus initialized")
+    except Exception as e:
+        logging.warning(f"Autofocus not available on this camera: {e}")
 
     # Main loop to handle streaming
     try:
