@@ -42,14 +42,14 @@ def start_camera_server(config):
             "AeEnable": True,  # Auto exposure
             "ExposureTime": 0,  # Auto (adjust for flicker: 8333 for 120Hz, 10000 for 100Hz lights)
             "AnalogueGain": 1.0,  # Low gain for clean image
-            # White balance for artificial grow lights
+            # White balance for artificial grow lights - adjusted for blue tint
             "AwbEnable": True,
-            "AwbMode": 1,  # Auto (try mode 1=Incandescent if colors look off under LEDs)
+            "AwbMode": 3,  # Fluorescent mode - removes blue cast from LED grow lights
             # Image quality for plant observation
             "Brightness": 0.0,  # Neutral (-1.0 to 1.0)
             "Contrast": 1.1,  # Slightly increased for plant detail
             "Saturation": 1.0,  # Neutral (adjust if plants look too dull/vibrant)
-            "Sharpness": 1.2,  # Slightly sharp for leaf detail
+            "Sharpness": 1.5,  # Increased sharpness to combat blur
             # Noise reduction
             "NoiseReductionMode": 1,  # Fast - good balance
         }
@@ -70,15 +70,12 @@ def start_camera_server(config):
     # Start MJPEG streaming (and H264 encoder if enabled)
     if config.get('record_motion'):
         picamera2.start_encoder(encoder, circular_output)
-    picamera2.start_recording(MJPEGEncoder(bitrate=10000000), FileOutput(output))
+    # Higher bitrate for better quality (20 Mbps) - MJPEG needs more than H264
+    picamera2.start_recording(MJPEGEncoder(bitrate=20000000), FileOutput(output))
     
-    # Trigger autofocus after camera starts (only for Camera Module 3)
-    # AfMode=2 (Continuous) means this will continuously refocus
-    try:
-        picamera2.set_controls({"AfTrigger": 0})
-        logging.info("Autofocus initialized")
-    except Exception as e:
-        logging.warning(f"Autofocus not available on this camera: {e}")
+    # Note: Continuous autofocus (AfMode=2) runs automatically
+    # AfTrigger is only needed for Auto mode (AfMode=0), not Continuous mode
+    logging.info("Camera started with continuous autofocus")
 
     # Main loop to handle streaming
     try:

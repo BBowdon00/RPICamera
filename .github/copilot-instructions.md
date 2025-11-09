@@ -94,14 +94,19 @@ The system is configured for continuous autofocus optimized for greenhouse monit
 
 **Autofocus Controls** (in `camera_server.py` video_config):
 - **AfMode**: 0=Manual, 1=Auto (single shot), 2=Continuous (currently set)
-  - Continuous mode automatically refocuses as plants grow or move
+  - **Continuous mode** (2): Automatically refocuses continuously - no AfTrigger needed
+  - **Auto mode** (1): Single focus cycle - requires AfTrigger=0 after start()
+  - **Manual mode** (0): Uses LensPosition control (0.0=infinity, 10.0=10cm)
 - **AfSpeed**: 0=Normal (current), 1=Fast
   - Normal provides stable, smooth focusing without hunting
+  - Fast for rapid-fire still captures
 - **AfRange**: 0=Normal (10cm-∞), 1=Macro (<10cm), 2=Full
   - Normal is ideal for whole plant viewing
   - Use Macro if camera is very close for leaf detail
 - **AfTrigger**: 0=Start AF, 1=Cancel
-  - Called after configure() to activate autofocus system
+  - **Only used with Auto mode (AfMode=1)** to start a single focus cycle
+  - Not needed for Continuous mode - it runs automatically
+  - Must be called after `start()` or `start_recording()`, not after `configure()`
 
 **Exposure & White Balance for Grow Lights:**
 - **AwbMode**: 0=Auto (current), 1=Incandescent, 2=Tungsten, 3=Fluorescent, 4=Indoor, 5=Daylight
