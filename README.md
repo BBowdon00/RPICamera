@@ -81,6 +81,47 @@ Using a configuration file:
 python3 main.py --config-file=../config.json
 ```
 
+### Run on Boot (Systemd Service)
+
+To automatically start the camera on boot:
+
+1. **Install the service** (run once):
+   ```bash
+   cd /path/to/RPICamera
+   chmod +x install-service.sh
+   ./install-service.sh
+   ```
+
+2. **Service commands**:
+   ```bash
+   # Check status
+   sudo systemctl status camera
+   
+   # View live logs
+   sudo journalctl -u camera -f
+   
+   # Stop/Start/Restart
+   sudo systemctl stop camera
+   sudo systemctl start camera
+   sudo systemctl restart camera
+   
+   # Disable auto-start on boot
+   sudo systemctl disable camera
+   
+   # Re-enable auto-start
+   sudo systemctl enable camera
+   ```
+
+3. **Edit service settings**:
+   ```bash
+   sudo nano /etc/systemd/system/camera.service
+   # After editing, reload and restart:
+   sudo systemctl daemon-reload
+   sudo systemctl restart camera
+   ```
+
+The camera will now start automatically on every boot!
+
 ### Configuration File
 Example `config.json`:
 ```json
