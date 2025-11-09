@@ -6,6 +6,7 @@ from picamera2.outputs import FileOutput, CircularOutput
 from streaming import StreamingOutput, StreamingServer, StreamingHandler
 from motion_detection import MotionDetector
 from mqtt_handler import MqttHandler
+from hls_output import HLSOutput, HLSSegmentOutput
 
 def start_camera_server(config):
     # Initialize components
@@ -26,12 +27,17 @@ def start_camera_server(config):
         mqtt_handler = MqttHandler(mqtt_broker)
         mqtt_handler.connect()
 
+    # Determine streaming format
+    stream_format = config.get('stream_format', 'hls')  # Default to HLS for better quality
+    
     # Configure camera: 1080p main stream for viewing, 640x360 low-res for motion detection
     # Optimized for Camera Module 3 Wide viewing hydroponic greenhouse
+    # For HLS, encode="main" to get H.264 from 1080p stream
+    # For MJPEG, encode="lores" to process motion detection
     video_config = picamera2.create_video_configuration(
         main={"format": "RGB888", "size": (1920, 1080)},
         lores={"size": (640, 360), "format": "YUV420"},
-        encode="lores",
+        encode="main" if stream_format == 'hls' else "lores",
         controls={
             "FrameRate": 30,
             # Autofocus - Camera Module 3 has motorized lens
@@ -50,47 +56,94 @@ def start_camera_server(config):
             "Contrast": 1.1,  # Slightly increased for plant detail
             "Saturation": 1.0,  # Neutral (adjust if plants look too dull/vibrant)
             "Sharpness": 1.5,  # Increased sharpness to combat blur
-            # Noise reduction
-            "NoiseReductionMode": 1,  # Fast - good balance
+            # Noise reduction - OFF for maximum sharpness (noise reduction softens image)
+            "NoiseReductionMode": 0,  # Off - preserves detail at cost of slight grain
         }
     )
     picamera2.configure(video_config)
     
-    # Set up encoder for motion recording if enabled
-    encoder = None
+    # Set up outputs based on streaming format
+    hls_manager = None
+    hls_output = None
+    mjpeg_output = None
+    motion_encoder = None
     circular_output = None
-    if config.get('record_motion'):
-        encoder = H264Encoder(bitrate=1000000)
-        circular_output = CircularOutput(buffersize=100)
-        # Note: encoder.output will be set to circular_output when start_encoder is called
     
-    # Create streaming output (will handle motion recording internally)
-    output = StreamingOutput(encoder, motion_detector, mqtt_handler, config, circular_output)
+    if stream_format == 'hls':
+        # HLS streaming with H.264
+        hls_manager = HLSOutput(output_dir="/tmp/hls", segment_time=2, playlist_size=6)
+        hls_output = HLSSegmentOutput(hls_manager, segment_duration=2)
+        logging.info("HLS streaming mode enabled (H.264)")
+        
+        # Still need MJPEG for motion detection if enabled
+        if not config.get('disable_motion'):
+            # Create a separate low-res MJPEG encoder for motion detection only
+            # This won't be served to clients, just used for motion detection
+            motion_encoder = MJPEGEncoder(bitrate=1000000)
+            mjpeg_output = StreamingOutput(None, motion_detector, mqtt_handler, config, None, for_motion_only=True)
     
-    # Start MJPEG streaming (and H264 encoder if enabled)
-    if config.get('record_motion'):
-        picamera2.start_encoder(encoder, circular_output)
-    # Higher bitrate for better quality (20 Mbps) - MJPEG needs more than H264
-    picamera2.start_recording(MJPEGEncoder(bitrate=20000000), FileOutput(output))
+    elif stream_format == 'mjpeg':
+        # Original MJPEG streaming
+        motion_encoder = None
+        if config.get('record_motion'):
+            motion_encoder = H264Encoder(bitrate=1000000)
+            circular_output = CircularOutput(buffersize=100)
+        
+        mjpeg_output = StreamingOutput(motion_encoder, motion_detector, mqtt_handler, config, circular_output)
+        logging.info("MJPEG streaming mode enabled")
+    
+    # Start encoders and recording
+    if stream_format == 'hls':
+        # Start H.264 HLS streaming on main stream
+        hls_encoder = H264Encoder(bitrate=5000000, repeat=True)  # 5 Mbps H.264 (better quality than 30 Mbps MJPEG)
+        picamera2.start_recording(hls_encoder, FileOutput(hls_output))
+        
+        # Start motion detection encoder on low-res stream if needed
+        if mjpeg_output:
+            picamera2.start_encoder(motion_encoder, FileOutput(mjpeg_output))
+    
+    elif stream_format == 'mjpeg':
+        # Start motion recording encoder if enabled
+        if config.get('record_motion') and motion_encoder:
+            picamera2.start_encoder(motion_encoder, circular_output)
+        
+        # Start MJPEG streaming
+        mjpeg_encoder = MJPEGEncoder(bitrate=30000000)
+        picamera2.start_recording(mjpeg_encoder, FileOutput(mjpeg_output))
     
     # Note: Continuous autofocus (AfMode=2) runs automatically
     # AfTrigger is only needed for Auto mode (AfMode=0), not Continuous mode
-    logging.info("Camera started with continuous autofocus")
+    logging.info(f"Camera started with continuous autofocus ({stream_format} streaming)")
 
     # Main loop to handle streaming
     try:
         port = config.get('server_port', 8000)
         address = ('', port)
         server = StreamingServer(address, StreamingHandler)
-        server.output = output  # Pass the output to the server instance
-        logging.info(f"Starting MJPEG server on {address[0]}:{address[1]}")
+        
+        # Pass appropriate outputs to server
+        server.hls_manager = hls_manager
+        server.mjpeg_output = mjpeg_output
+        server.stream_format = stream_format
+        
+        logging.info(f"Starting streaming server on {address[0]}:{address[1]} ({stream_format} mode)")
         server.serve_forever()
     except Exception as e:
         logging.error(f"Failed to start server: {e}")
     finally:
+        # Stop all encoders
         picamera2.stop_recording()
-        if config.get('record_motion') and encoder:
-            picamera2.stop_encoder(encoder)
+        if motion_encoder:
+            try:
+                picamera2.stop_encoder(motion_encoder)
+            except:
+                pass
+        
+        # Close HLS output if active
+        if hls_output:
+            hls_output.close()
+        
+        # Cleanup MQTT
         if mqtt_handler:
             mqtt_handler.stop()
             mqtt_handler.disconnect()

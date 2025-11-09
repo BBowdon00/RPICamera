@@ -4,12 +4,14 @@ import logging
 from pathlib import Path
 
 def parse_command_line_arguments():
-    parser = argparse.ArgumentParser(description="Picamera2 Motion Detection with MJPEG Streaming")
+    parser = argparse.ArgumentParser(description="Picamera2 Motion Detection with H.264/MJPEG Streaming")
     parser.add_argument("--config-file", type=str, help="Path to configuration file", required=False)
     parser.add_argument("--record-motion", action="store_true", help="Enable circular buffer recording on motion detection")
     parser.add_argument("--draw-box", action="store_true", help="Draw bounding boxes around detected motion")
     parser.add_argument("--disable-motion", action="store_true", help="Disable motion detection (streaming only mode)")
     parser.add_argument("--mqtt-broker", type=str, help="MQTT broker address to publish motion detection events")
+    parser.add_argument("--stream-format", type=str, default="hls", choices=["hls", "mjpeg"], 
+                        help="Streaming format: 'hls' for H.264 HLS (default, better quality) or 'mjpeg' for MJPEG")
     parser.add_argument("--log-level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     return parser.parse_args()
 
