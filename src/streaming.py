@@ -20,22 +20,31 @@ import os
 PAGE = """
 <html>
 <head>
-<title>Picamera2 MJPEG Streaming Demo with Timestamp</title>
+<title>Hydroponic System Camera Feed</title>
+<style>
+    body { margin: 0; padding: 20px; background: #1a1a1a; color: #fff; font-family: Arial, sans-serif; }
+    h1 { text-align: center; }
+    .container { max-width: 1920px; margin: 0 auto; text-align: center; }
+    img { max-width: 100%; height: auto; border: 2px solid #444; border-radius: 8px; }
+</style>
 </head>
 <body>
-<h1>Picamera2 MJPEG Streaming Demo with Timestamp</h1>
-<img src="stream.mjpg" width="1280" height="720" />
+<div class="container">
+    <h1>🌱 Hydroponic System - Live Camera Feed</h1>
+    <img src="stream.mjpg" alt="Live Camera Stream" />
+    <p>Resolution: 1920x1080 @ 30fps | Motion Detection Active</p>
+</div>
 </body>
 </html>
 """
 
 class StreamingOutput(io.BufferedIOBase):
-    def __init__(self, encoder, motion_detector, mqtt_handler, config):
+    def __init__(self, encoder, motion_detector, mqtt_handler, config, circular_output=None):
         
         font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
         if not os.path.exists(font_path):
-            logging.error(f"Font not found at {font_path}. Exiting.")
-            return
+            logging.error(f"Font not found at {font_path}.")
+            raise FileNotFoundError(f"Required font not found at {font_path}")
         self.font = ImageFont.truetype(font_path, 24)
         self.encoder = encoder
         self.frame = None
@@ -44,7 +53,16 @@ class StreamingOutput(io.BufferedIOBase):
         self.mqtt_handler = mqtt_handler
         self.draw_bbox = config.get("draw_box")
         self.record_motion = config.get("record_motion")
-        self.recorder = MotionRecorder(encoder_output=self.encoder.output,save_dir=os.path.expanduser("~/Camera/captured_images"),timeout=2,buffer_seconds=3)
+        
+        # Only create recorder if encoder and circular output exist (recording is enabled)
+        self.recorder = None
+        if circular_output and self.record_motion:
+            self.recorder = MotionRecorder(
+                encoder_output=circular_output,
+                save_dir=os.path.expanduser("~/Camera/captured_images"),
+                timeout=2,
+                buffer_seconds=3
+            )
 
     def write(self, buf):
         with self.condition:
@@ -54,14 +72,18 @@ class StreamingOutput(io.BufferedIOBase):
 
                 # Motion detection
                 motion_detected, gray = self.motion_detector.detect_motion(frame)
-                if motion_detected or self.motion_detector.previous_frame is None:
+                if motion_detected:
                     if self.mqtt_handler:
                         self.mqtt_handler.publish_motion_event()
 
                     if self.draw_bbox:
                         frame = self.motion_detector.draw_bounding_boxes(frame, gray)
-                    self.motion_detector.update_reference(gray)
-                if self.record_motion:
+                
+                # Always update reference frame to adapt to gradual changes
+                self.motion_detector.update_reference(gray)
+                
+                # Update recorder if it exists
+                if self.recorder:
                     self.recorder.update(motion_detected)
                 img = Image.fromarray(frame)
                 img = overlay_timestamp(img, self.font)
@@ -92,10 +114,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                     with self.server.output.condition:
                         self.server.output.condition.wait()
                         frame = self.server.output.frame
+                    # Write multipart boundary and headers directly to socket
                     self.wfile.write(b'--FRAME\r\n')
-                    self.send_header('Content-Type', 'image/jpeg')
-                    self.send_header('Content-Length', str(len(frame)))
-                    self.end_headers()
+                    self.wfile.write(b'Content-Type: image/jpeg\r\n')
+                    self.wfile.write(f'Content-Length: {len(frame)}\r\n\r\n'.encode())
                     self.wfile.write(frame)
                     self.wfile.write(b'\r\n')
             except Exception as e:

@@ -8,26 +8,42 @@ from motion_detection import MotionDetector
 from mqtt_handler import MqttHandler
 
 def start_camera_server(config):
-    # Paths and font setup
-    save_path = os.path.expanduser("~/Camera/captured_images")
-    os.makedirs(save_path, exist_ok=True)
-    
     # Initialize components
     picamera2 = Picamera2()
     motion_detector = MotionDetector()
-    mqtt_handler = MqttHandler(config.get('mqtt_broker'))
-
-    if mqtt_handler:
+    
+    # Only create MQTT handler if broker address is provided
+    mqtt_handler = None
+    mqtt_broker = config.get('mqtt_broker')
+    if mqtt_broker:
+        mqtt_handler = MqttHandler(mqtt_broker)
         mqtt_handler.connect()
 
-    picamera2.configure(picamera2.create_video_configuration(main={"format": "RGB888","size": (1280, 720)},lores={"size": (640, 360), "format": "YUV420"},encode="lores"))
+    # Configure camera: 1080p main stream for viewing, 640x360 low-res for motion detection
+    video_config = picamera2.create_video_configuration(
+        main={"format": "RGB888", "size": (1920, 1080)},
+        lores={"size": (640, 360), "format": "YUV420"},
+        encode="lores",
+        controls={"FrameRate": 20}
+    )
+    picamera2.configure(video_config)
     
+    # Set up encoder for motion recording if enabled
     encoder = None
+    circular_output = None
     if config.get('record_motion'):
         encoder = H264Encoder(bitrate=1000000)
-        picamera2.start_recording(encoder,CircularOutput(buffersize=100))
+        circular_output = CircularOutput(buffersize=100)
+        # Note: encoder.output will be set to circular_output when start_encoder is called
+    
     picamera2.set_controls({"AwbEnable": True})
-    output = StreamingOutput(encoder,motion_detector, mqtt_handler,config)
+    
+    # Create streaming output (will handle motion recording internally)
+    output = StreamingOutput(encoder, motion_detector, mqtt_handler, config, circular_output)
+    
+    # Start MJPEG streaming (and H264 encoder if enabled)
+    if config.get('record_motion'):
+        picamera2.start_encoder(encoder, circular_output)
     picamera2.start_recording(MJPEGEncoder(bitrate=10000000), FileOutput(output))
 
     # Main loop to handle streaming
@@ -42,6 +58,9 @@ def start_camera_server(config):
         logging.error(f"Failed to start server: {e}")
     finally:
         picamera2.stop_recording()
+        if config.get('record_motion') and encoder:
+            picamera2.stop_encoder(encoder)
         if mqtt_handler:
             mqtt_handler.stop()
+            mqtt_handler.disconnect()
 
