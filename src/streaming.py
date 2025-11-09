@@ -357,52 +357,46 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             except Exception as e:
                 logging.warning(f"Removed streaming client {self.client_address}: {e}")
         
-        elif self.path == '/stream.m3u8':
-            # HLS playlist
-            if not self.server.hls_manager:
+        elif self.path == '/stream.m3u8' or self.path.endswith('.ts'):
+            # HLS playlist or segment - serve from FFmpeg output directory
+            if not self.server.hls_output_dir:
                 self.send_error(404)
                 self.end_headers()
                 return
             
-            playlist_content = self.server.hls_manager.generate_playlist()
-            if not playlist_content:
-                self.send_error(503)
-                self.end_headers()
-                return
-            
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/vnd.apple.mpegurl')
-            self.send_header('Cache-Control', 'no-cache')
-            self.end_headers()
-            self.wfile.write(playlist_content.encode('utf-8'))
-        
-        elif self.path.endswith('.ts'):
-            # HLS segment
-            if not self.server.hls_manager:
-                self.send_error(404)
-                self.end_headers()
-                return
-            
+            # Get the requested file
             filename = os.path.basename(self.path)
-            segment_path = self.server.hls_manager.get_segment_path(filename)
+            filepath = os.path.join(self.server.hls_output_dir, filename)
             
-            if not os.path.exists(segment_path):
+            if not os.path.exists(filepath):
                 self.send_error(404)
                 self.end_headers()
                 return
             
             try:
-                with open(segment_path, 'rb') as f:
+                with open(filepath, 'rb') as f:
                     content = f.read()
                 
+                # Set content type based on file extension
+                if filename.endswith('.m3u8'):
+                    content_type = 'application/vnd.apple.mpegurl'
+                    cache_control = 'no-cache'
+                elif filename.endswith('.ts'):
+                    content_type = 'video/mp2t'
+                    cache_control = 'max-age=10'
+                else:
+                    content_type = 'application/octet-stream'
+                    cache_control = 'no-cache'
+                
                 self.send_response(200)
-                self.send_header('Content-Type', 'video/mp2t')
+                self.send_header('Content-Type', content_type)
                 self.send_header('Content-Length', str(len(content)))
-                self.send_header('Cache-Control', 'max-age=10')
+                self.send_header('Cache-Control', cache_control)
+                self.send_header('Access-Control-Allow-Origin', '*')  # Allow CORS
                 self.end_headers()
                 self.wfile.write(content)
             except Exception as e:
-                logging.error(f"Error serving segment {filename}: {e}")
+                logging.error(f"Error serving HLS file {filename}: {e}")
                 self.send_error(500)
                 self.end_headers()
         
@@ -416,6 +410,6 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     def __init__(self, server_address, RequestHandlerClass):
         super().__init__(server_address, RequestHandlerClass)
         self.mjpeg_output = None
-        self.hls_manager = None
+        self.hls_output_dir = None
         self.stream_format = 'mjpeg'
 

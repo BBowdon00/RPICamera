@@ -2,11 +2,10 @@ import os
 import logging
 from picamera2 import Picamera2
 from picamera2.encoders import MJPEGEncoder, H264Encoder
-from picamera2.outputs import FileOutput, CircularOutput
+from picamera2.outputs import FileOutput, CircularOutput, FfmpegOutput
 from streaming import StreamingOutput, StreamingServer, StreamingHandler
 from motion_detection import MotionDetector
 from mqtt_handler import MqttHandler
-from hls_output import HLSOutput, HLSSegmentOutput
 
 def start_camera_server(config):
     # Initialize components
@@ -63,15 +62,27 @@ def start_camera_server(config):
     picamera2.configure(video_config)
     
     # Set up outputs based on streaming format
-    hls_manager = None
     hls_output = None
     mjpeg_output = None
+    hls_output_dir = "/tmp/hls"
     
     if stream_format == 'hls':
-        # HLS streaming with H.264
-        hls_manager = HLSOutput(output_dir="/tmp/hls", segment_time=2, playlist_size=6)
-        hls_output = HLSSegmentOutput(hls_manager, segment_duration=2)
-        logging.info("HLS streaming mode enabled (H.264)")
+        # HLS streaming with H.264 using FfmpegOutput
+        # Create output directory
+        os.makedirs(hls_output_dir, exist_ok=True)
+        
+        # Configure FFmpeg HLS output
+        # -f hls: Output format HLS
+        # -hls_time 2: 2-second segments (lower latency)
+        # -hls_list_size 6: Keep 6 segments in playlist (12 seconds buffer)
+        # -hls_flags delete_segments: Auto-delete old segments
+        # -hls_allow_cache 0: Disable caching for live stream
+        hls_output = FfmpegOutput(
+            f"-f hls -hls_time 2 -hls_list_size 6 "
+            f"-hls_flags delete_segments -hls_allow_cache 0 "
+            f"{hls_output_dir}/stream.m3u8"
+        )
+        logging.info("HLS streaming mode enabled (H.264 via FFmpeg)")
         
         # Motion detection not yet supported in HLS mode
         if motion_detector:
@@ -92,7 +103,7 @@ def start_camera_server(config):
     # Start encoders and recording
     if stream_format == 'hls':
         # Start H.264 HLS streaming on main stream
-        hls_encoder = H264Encoder(bitrate=5000000, repeat=True)  # 5 Mbps H.264
+        hls_encoder = H264Encoder(bitrate=5000000)  # 5 Mbps H.264
         picamera2.start_recording(hls_encoder, hls_output)
     
     elif stream_format == 'mjpeg':
@@ -114,7 +125,7 @@ def start_camera_server(config):
         server = StreamingServer(address, StreamingHandler)
         
         # Pass appropriate outputs to server
-        server.hls_manager = hls_manager
+        server.hls_output_dir = hls_output_dir if stream_format == 'hls' else None
         server.mjpeg_output = mjpeg_output
         server.stream_format = stream_format
         
