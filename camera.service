@@ -1,0 +1,16 @@
+[Unit]
+Description=Hydroponic Camera Streaming Service
+After=network.target
+
+[Service]
+Type=simple
+User=m0rb1d-pi
+WorkingDirectory=/home/m0rb1d-pi/Camera/src
+ExecStart=/home/m0rb1d-pi/Camera/src/camera_env/bin/python /home/m0rb1d-pi/Camera/src/main.py --stream-format=hls --disable-motion
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
