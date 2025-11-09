@@ -20,6 +20,7 @@ import os
 HLS_PAGE = """
 <html>
 <head>
+<meta charset="UTF-8">
 <title>Hydroponic System Camera Feed (HLS)</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
@@ -171,6 +172,7 @@ HLS_PAGE = """
 PAGE = """
 <html>
 <head>
+<meta charset="UTF-8">
 <title>Hydroponic System Camera Feed (MJPEG)</title>
 <style>
     body { 
