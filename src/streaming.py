@@ -22,17 +22,57 @@ PAGE = """
 <head>
 <title>Hydroponic System Camera Feed</title>
 <style>
-    body { margin: 0; padding: 20px; background: #1a1a1a; color: #fff; font-family: Arial, sans-serif; }
-    h1 { text-align: center; }
-    .container { max-width: 1920px; margin: 0 auto; text-align: center; }
-    img { max-width: 100%; height: auto; border: 2px solid #444; border-radius: 8px; }
+    body { 
+        margin: 0; 
+        padding: 0; 
+        background: #000; 
+        color: #fff; 
+        font-family: Arial, sans-serif;
+        overflow: hidden;
+    }
+    .container { 
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        width: 100vw;
+    }
+    h1 { 
+        margin: 0;
+        padding: 10px;
+        text-align: center;
+        background: rgba(26, 26, 26, 0.8);
+        font-size: 1.2em;
+    }
+    .stream-wrapper {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    img { 
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+    .info {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
 </style>
 </head>
 <body>
 <div class="container">
     <h1>🌱 Hydroponic System - Live Camera Feed</h1>
-    <img src="stream.mjpg" alt="Live Camera Stream" />
-    <p>Resolution: 1920x1080 @ 30fps | Motion Detection Active</p>
+    <div class="stream-wrapper">
+        <img src="stream.mjpg" alt="Live Camera Stream" />
+    </div>
+    <div class="info">1920x1080 @ 30fps | Motion Detection Active</div>
 </div>
 </body>
 </html>
