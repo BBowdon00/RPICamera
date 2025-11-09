@@ -10,12 +10,19 @@ from mqtt_handler import MqttHandler
 def start_camera_server(config):
     # Initialize components
     picamera2 = Picamera2()
-    motion_detector = MotionDetector()
     
-    # Only create MQTT handler if broker address is provided
+    # Only create motion detector if not disabled
+    motion_detector = None
+    if not config.get('disable_motion'):
+        motion_detector = MotionDetector()
+        logging.info("Motion detection enabled")
+    else:
+        logging.info("Motion detection disabled - streaming only mode")
+    
+    # Only create MQTT handler if broker address is provided and motion detection enabled
     mqtt_handler = None
     mqtt_broker = config.get('mqtt_broker')
-    if mqtt_broker:
+    if mqtt_broker and not config.get('disable_motion'):
         mqtt_handler = MqttHandler(mqtt_broker)
         mqtt_handler.connect()
 

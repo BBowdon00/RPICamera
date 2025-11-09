@@ -110,21 +110,25 @@ class StreamingOutput(io.BufferedIOBase):
                 img = Image.open(io.BytesIO(buf))
                 frame = np.array(img)
 
-                # Motion detection
-                motion_detected, gray = self.motion_detector.detect_motion(frame)
-                if motion_detected:
-                    if self.mqtt_handler:
-                        self.mqtt_handler.publish_motion_event()
+                # Motion detection (only if enabled)
+                motion_detected = False
+                if self.motion_detector:
+                    motion_detected, gray = self.motion_detector.detect_motion(frame)
+                    if motion_detected:
+                        if self.mqtt_handler:
+                            self.mqtt_handler.publish_motion_event()
 
-                    if self.draw_bbox:
-                        frame = self.motion_detector.draw_bounding_boxes(frame, gray)
+                        if self.draw_bbox:
+                            frame = self.motion_detector.draw_bounding_boxes(frame, gray)
+                    
+                    # Always update reference frame to adapt to gradual changes
+                    self.motion_detector.update_reference(gray)
+                    
+                    # Update recorder if it exists
+                    if self.recorder:
+                        self.recorder.update(motion_detected)
                 
-                # Always update reference frame to adapt to gradual changes
-                self.motion_detector.update_reference(gray)
-                
-                # Update recorder if it exists
-                if self.recorder:
-                    self.recorder.update(motion_detected)
+                # Convert frame and add timestamp
                 img = Image.fromarray(frame)
                 img = overlay_timestamp(img, self.font)
                 output = io.BytesIO()

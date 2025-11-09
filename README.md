@@ -37,13 +37,19 @@ Real-time camera monitoring system for hydroponic grow environments using Raspbe
 - `--config-file`: Path to JSON configuration file
 - `--record-motion`: Enable H.264 circular buffer recording on motion detection
 - `--draw-box`: Draw bounding boxes around detected motion
+- `--disable-motion`: Disable motion detection entirely (streaming only mode)
 - `--mqtt-broker`: MQTT broker address for event publishing (e.g., `192.168.1.100`)
 - `--log-level`: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
 ### Quick Start
-Basic streaming without recording:
+Streaming only (no motion detection):
 ```bash
 cd src
+python3 main.py --disable-motion
+```
+
+Basic streaming with motion detection:
+```bash
 python3 main.py --mqtt-broker=192.168.1.100
 ```
 
@@ -63,7 +69,17 @@ Example `config.json`:
 {
     "record_motion": true,
     "draw_box": true,
+    "disable_motion": false,
     "mqtt_broker": "192.168.1.100",
+    "server_port": 8000,
+    "log_level": "INFO"
+}
+```
+
+For streaming-only mode (best performance):
+```json
+{
+    "disable_motion": true,
     "server_port": 8000,
     "log_level": "INFO"
 }
