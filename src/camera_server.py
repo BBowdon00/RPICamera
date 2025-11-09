@@ -8,28 +8,74 @@ from motion_detection import MotionDetector
 from mqtt_handler import MqttHandler
 
 def start_camera_server(config):
-    # Paths and font setup
-    save_path = os.path.expanduser("~/Camera/captured_images")
-    os.makedirs(save_path, exist_ok=True)
-    
     # Initialize components
     picamera2 = Picamera2()
-    motion_detector = MotionDetector()
-    mqtt_handler = MqttHandler(config.get('mqtt_broker'))
-
-    if mqtt_handler:
+    
+    # Only create motion detector if not disabled
+    motion_detector = None
+    if not config.get('disable_motion'):
+        motion_detector = MotionDetector()
+        logging.info("Motion detection enabled")
+    else:
+        logging.info("Motion detection disabled - streaming only mode")
+    
+    # Only create MQTT handler if broker address is provided and motion detection enabled
+    mqtt_handler = None
+    mqtt_broker = config.get('mqtt_broker')
+    if mqtt_broker and not config.get('disable_motion'):
+        mqtt_handler = MqttHandler(mqtt_broker)
         mqtt_handler.connect()
 
-    picamera2.configure(picamera2.create_video_configuration(main={"size": (1280, 720)}))
-
+    # Configure camera: 1080p main stream for viewing, 640x360 low-res for motion detection
+    # Optimized for Camera Module 3 Wide viewing hydroponic greenhouse
+    video_config = picamera2.create_video_configuration(
+        main={"format": "RGB888", "size": (1920, 1080)},
+        lores={"size": (640, 360), "format": "YUV420"},
+        encode="lores",
+        controls={
+            "FrameRate": 30,
+            # Autofocus - Camera Module 3 has motorized lens
+            "AfMode": 2,  # Continuous autofocus (always active)
+            "AfSpeed": 0,  # Normal speed - balanced and stable
+            "AfRange": 0,  # Normal range (10cm to infinity) - good for whole plants
+            # Exposure for grow lights (LED/HPS)
+            "AeEnable": True,  # Auto exposure
+            "ExposureTime": 0,  # Auto (adjust for flicker: 8333 for 120Hz, 10000 for 100Hz lights)
+            "AnalogueGain": 1.0,  # Low gain for clean image
+            # White balance for artificial grow lights - adjusted for blue tint
+            "AwbEnable": True,
+            "AwbMode": 3,  # Fluorescent mode - removes blue cast from LED grow lights
+            # Image quality for plant observation
+            "Brightness": 0.0,  # Neutral (-1.0 to 1.0)
+            "Contrast": 1.1,  # Slightly increased for plant detail
+            "Saturation": 1.0,  # Neutral (adjust if plants look too dull/vibrant)
+            "Sharpness": 1.5,  # Increased sharpness to combat blur
+            # Noise reduction
+            "NoiseReductionMode": 1,  # Fast - good balance
+        }
+    )
+    picamera2.configure(video_config)
+    
+    # Set up encoder for motion recording if enabled
     encoder = None
+    circular_output = None
     if config.get('record_motion'):
         encoder = H264Encoder(bitrate=1000000)
-        encoder.output = CircularOutput()
-        picamera2.encoder = encoder
-
-    output = StreamingOutput(encoder,motion_detector, mqtt_handler,config)
-    picamera2.start_recording(MJPEGEncoder(bitrate=10000000), FileOutput(output))
+        circular_output = CircularOutput(buffersize=100)
+        # Note: encoder.output will be set to circular_output when start_encoder is called
+    
+    # Create streaming output (will handle motion recording internally)
+    output = StreamingOutput(encoder, motion_detector, mqtt_handler, config, circular_output)
+    
+    # Start MJPEG streaming (and H264 encoder if enabled)
+    if config.get('record_motion'):
+        picamera2.start_encoder(encoder, circular_output)
+    # Higher bitrate for better quality (20 Mbps) - MJPEG needs more than H264
+    picamera2.start_recording(MJPEGEncoder(bitrate=20000000), FileOutput(output))
+    
+    # Note: Continuous autofocus (AfMode=2) runs automatically
+    # AfTrigger is only needed for Auto mode (AfMode=0), not Continuous mode
+    logging.info("Camera started with continuous autofocus")
 
     # Main loop to handle streaming
     try:
@@ -43,6 +89,9 @@ def start_camera_server(config):
         logging.error(f"Failed to start server: {e}")
     finally:
         picamera2.stop_recording()
+        if config.get('record_motion') and encoder:
+            picamera2.stop_encoder(encoder)
         if mqtt_handler:
             mqtt_handler.stop()
+            mqtt_handler.disconnect()
 
