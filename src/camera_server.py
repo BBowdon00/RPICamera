@@ -38,7 +38,7 @@ def start_camera_server(config):
         lores={"size": (640, 360), "format": "YUV420"},
         encode="main" if stream_format == 'hls' else "lores",
         controls={
-            "FrameRate": 30,
+            "FrameRate": 25,  # High framerate for smooth viewing (CPU available)
             # Autofocus - Camera Module 3 has motorized lens
             "AfMode": 2,  # Continuous autofocus (always active)
             "AfSpeed": 0,  # Normal speed - balanced and stable
@@ -71,18 +71,56 @@ def start_camera_server(config):
         # Create output directory
         os.makedirs(hls_output_dir, exist_ok=True)
         
-        # Configure FFmpeg HLS output
-        # -f hls: Output format HLS
-        # -hls_time 2: 2-second segments (lower latency)
-        # -hls_list_size 6: Keep 6 segments in playlist (12 seconds buffer)
-        # -hls_flags delete_segments: Auto-delete old segments
-        # -hls_allow_cache 0: Disable caching for live stream
-        hls_output = FfmpegOutput(
-            f"-f hls -hls_time 2 -hls_list_size 6 "
-            f"-hls_flags delete_segments -hls_allow_cache 0 "
-            f"{hls_output_dir}/stream.m3u8"
-        )
+        # Configure balanced LL-HLS for high quality with reasonable low latency
+        low_latency = config.get('low_latency', False)
+        
+        if low_latency:
+            # BALANCED LL-HLS: ~2-3 seconds latency with high quality
+            hls_params = (
+                f"-f hls "
+                f"-hls_time 1.5 "                         # 1.5-second segments (sweet spot)
+                f"-hls_list_size 3 "                      # Keep 3 segments (4.5s buffer)
+                f"-hls_flags delete_segments+split_by_time+independent_segments "
+                f"-hls_segment_type mpegts "               # MPEG-TS for better streaming
+                f"-hls_allow_cache 0 "                    # No caching for live stream
+                f"-g 38 "                                 # Keyframe every ~1.5s (38 frames at 25fps)
+                f"-keyint_min 8 "                         # Minimum GOP for flexibility
+                f"-sc_threshold 0 "                       # Consistent keyframe placement
+                f"-preset fast "                          # Good speed/quality balance
+                f"-tune film "                            # High quality for plant detail
+                f"-profile:v high "                       # H.264 High Profile for better compression
+                f"-level 4.1 "                           # Support up to 1080p efficiently
+                f"-crf 18 "                              # High quality (lower = better, 18 = excellent)
+                f"-maxrate 6M -bufsize 12M "             # Rate control for consistent quality
+                f"-fflags +flush_packets "                # Reduce buffering delay
+            )
+        else:
+            # STANDARD HIGH QUALITY: ~4-5 seconds latency, maximum quality
+            hls_params = (
+                f"-f hls "
+                f"-hls_time 2 "                           # 2-second segments (stable)
+                f"-hls_list_size 3 "                      # Keep 3 segments (6s buffer)
+                f"-hls_flags delete_segments+split_by_time "
+                f"-hls_allow_cache 0 "
+                f"-g 50 "                                 # Keyframe every 2 seconds (50 frames at 25fps)
+                f"-preset slow "                          # Maximum quality encoding
+                f"-tune film "                            # Optimized for plant detail
+                f"-profile:v high "                       # H.264 High Profile
+                f"-level 4.1 "
+                f"-crf 16 "                              # Very high quality (16 = near-lossless)
+                f"-maxrate 8M -bufsize 16M "             # Higher bitrate for quality
+            )
+        
+        hls_output = FfmpegOutput(f"{hls_params}{hls_output_dir}/stream.m3u8")
         logging.info("HLS streaming mode enabled (H.264 via FFmpeg)")
+        if low_latency:
+            logging.info("⚡ Balanced LL-HLS: ~2-3s latency with high quality")
+            logging.info("💎 Quality: CRF 18 (excellent), 1.5s segments, 6M max bitrate")
+            logging.info("� Features: Independent segments, MPEG-TS, fast preset")
+        else:
+            logging.info("🏆 Maximum Quality: ~4-5s latency, premium encoding")
+            logging.info("💎 Quality: CRF 16 (near-lossless), 2s segments, 8M max bitrate")
+            logging.info("⭐ Features: Slow preset for maximum quality")
         
         # Motion detection not yet supported in HLS mode
         if motion_detector:
@@ -103,7 +141,9 @@ def start_camera_server(config):
     # Start encoders and recording
     if stream_format == 'hls':
         # Start H.264 HLS streaming on main stream
-        hls_encoder = H264Encoder(bitrate=5000000)  # 5 Mbps H.264
+        # Higher bitrate for quality (CRF will control actual rate)
+        bitrate = 6000000 if low_latency else 8000000  # 6-8 Mbps max for high quality
+        hls_encoder = H264Encoder(bitrate=bitrate)
         picamera2.start_recording(hls_encoder, hls_output)
     
     elif stream_format == 'mjpeg':

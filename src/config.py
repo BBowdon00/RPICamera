@@ -12,6 +12,8 @@ def parse_command_line_arguments():
     parser.add_argument("--mqtt-broker", type=str, help="MQTT broker address to publish motion detection events")
     parser.add_argument("--stream-format", type=str, default="hls", choices=["hls", "mjpeg"], 
                         help="Streaming format: 'hls' for H.264 HLS (default, better quality) or 'mjpeg' for MJPEG")
+    parser.add_argument("--low-latency", action="store_true", 
+                        help="Enable ultra-low latency mode (uses smaller segments/buffers, may reduce quality)")
     parser.add_argument("--log-level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     return parser.parse_args()
 
