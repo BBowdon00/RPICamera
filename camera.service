@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=m0rb1d-pi
 WorkingDirectory=/home/m0rb1d-pi/Camera/src
-ExecStart=/home/m0rb1d-pi/Camera/src/camera_env/bin/python /home/m0rb1d-pi/Camera/src/main.py --stream-format=hls --disable-motion
+ExecStart=/home/m0rb1d-pi/Camera/src/camera_env/bin/python /home/m0rb1d-pi/Camera/src/main.py --stream-format=hls --disable-motion --low-latency
 Restart=always
 RestartSec=10
 StandardOutput=journal

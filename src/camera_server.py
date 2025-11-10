@@ -75,24 +75,27 @@ def start_camera_server(config):
         low_latency = config.get('low_latency', False)
         
         if low_latency:
-            # BALANCED LL-HLS: ~2-3 seconds latency with high quality
+            # AGGRESSIVE LL-HLS: Target ~2-3 seconds actual latency
             hls_params = (
                 f"-f hls "
-                f"-hls_time 1.5 "                         # 1.5-second segments (sweet spot)
-                f"-hls_list_size 3 "                      # Keep 3 segments (4.5s buffer)
+                f"-hls_time 1 "                           # 1-second segments (aggressive)
+                f"-hls_list_size 2 "                      # Keep only 2 segments (2s buffer)
                 f"-hls_flags delete_segments+split_by_time+independent_segments "
                 f"-hls_segment_type mpegts "               # MPEG-TS for better streaming
                 f"-hls_allow_cache 0 "                    # No caching for live stream
-                f"-g 38 "                                 # Keyframe every ~1.5s (38 frames at 25fps)
-                f"-keyint_min 8 "                         # Minimum GOP for flexibility
-                f"-sc_threshold 0 "                       # Consistent keyframe placement
-                f"-preset fast "                          # Good speed/quality balance
-                f"-tune film "                            # High quality for plant detail
-                f"-profile:v high "                       # H.264 High Profile for better compression
-                f"-level 4.1 "                           # Support up to 1080p efficiently
-                f"-crf 18 "                              # High quality (lower = better, 18 = excellent)
-                f"-maxrate 6M -bufsize 12M "             # Rate control for consistent quality
-                f"-fflags +flush_packets "                # Reduce buffering delay
+                f"-g 25 "                                 # Keyframe every 1s (25 frames at 25fps)
+                f"-keyint_min 25 "                        # Force keyframes every second
+                f"-sc_threshold 0 "                       # Disable scene change detection
+                f"-preset ultrafast "                     # Fastest encoding for low latency
+                f"-tune zerolatency "                     # Zero latency tuning
+                f"-profile:v baseline "                   # Simpler profile for faster decode
+                f"-level 3.1 "                           # Lower level for faster processing
+                f"-crf 20 "                              # Good quality but faster encoding
+                f"-maxrate 4M -bufsize 2M "              # Smaller buffer for lower latency
+                f"-fflags +flush_packets+nobuffer "      # Aggressive flushing
+                f"-flush_packets 1 "                     # Force packet flushing
+                f"-max_delay 0 "                         # No muxing delay
+                f"-avioflags direct "                    # Direct I/O, bypass buffering
             )
         else:
             # STANDARD HIGH QUALITY: ~4-5 seconds latency, maximum quality
@@ -113,10 +116,12 @@ def start_camera_server(config):
         
         hls_output = FfmpegOutput(f"{hls_params}{hls_output_dir}/stream.m3u8")
         logging.info("HLS streaming mode enabled (H.264 via FFmpeg)")
+        logging.info(f"📁 HLS output directory: {hls_output_dir}")
         if low_latency:
-            logging.info("⚡ Balanced LL-HLS: ~2-3s latency with high quality")
-            logging.info("💎 Quality: CRF 18 (excellent), 1.5s segments, 6M max bitrate")
-            logging.info("� Features: Independent segments, MPEG-TS, fast preset")
+            logging.info("⚡ AGGRESSIVE LL-HLS: Target 2-3s latency (ultra-low buffer)")
+            logging.info("� Speed: 1s segments, 2-segment buffer, ultrafast preset")
+            logging.info("🎯 Optimizations: Zero-latency tune, direct I/O, forced keyframes")
+            logging.info(f"🔍 Debug: Check {hls_output_dir}/stream.m3u8 for actual segment timing")
         else:
             logging.info("🏆 Maximum Quality: ~4-5s latency, premium encoding")
             logging.info("💎 Quality: CRF 16 (near-lossless), 2s segments, 8M max bitrate")
