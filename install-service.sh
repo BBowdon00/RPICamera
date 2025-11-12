@@ -47,7 +47,7 @@ After=network.target
 Type=simple
 User=$CAMERA_USER
 WorkingDirectory=$CAMERA_DIR/src
-ExecStart=$VENV_PYTHON $CAMERA_DIR/src/main.py --stream-format=hls --disable-motion
+ExecStart=$VENV_PYTHON $CAMERA_DIR/src/main.py --stream-format=hls --disable-motion --low-latency
 Restart=always
 RestartSec=10
 StandardOutput=journal
