@@ -86,11 +86,9 @@ def start_camera_server(config):
                 f"-g 25 "                                 # Keyframe every 1s (25 frames at 25fps)
                 f"-keyint_min 25 "                        # Force keyframes every second
                 f"-sc_threshold 0 "                       # Disable scene change detection
-                f"-preset fast "                     # Fastest encoding for low latency
+                f"-preset ultrafast "                     # Fastest encoding for low latency
                 f"-tune zerolatency "                     # Zero latency tuning
-                f"-profile:v baseline "                   # Simpler profile for faster decode
-                f"-level 4.1 "                           # Lower level for faster processing
-                f"-crf 18 "                              # Good quality but faster encoding
+                f"-crf 23 "                              # Good quality but faster encoding
                 f"-maxrate 6M -bufsize 12M "              # Smaller buffer for lower latency
                 f"-fflags +flush_packets+nobuffer "      # Aggressive flushing
                 f"-flush_packets 1 "                     # Force packet flushing
@@ -106,11 +104,9 @@ def start_camera_server(config):
                 f"-hls_flags delete_segments+split_by_time "
                 f"-hls_allow_cache 0 "
                 f"-g 50 "                                 # Keyframe every 2 seconds (50 frames at 25fps)
-                f"-preset slow "                          # Maximum quality encoding
+                f"-preset medium "                        # Balanced quality encoding
                 f"-tune film "                            # Optimized for plant detail
-                f"-profile:v high "                       # H.264 High Profile
-                f"-level 4.1 "
-                f"-crf 16 "                              # Very high quality (16 = near-lossless)
+                f"-crf 20 "                              # High quality
                 f"-maxrate 8M -bufsize 16M "             # Higher bitrate for quality
             )
         
