@@ -43,11 +43,10 @@ def start_camera_server(config):
             "AfMode": 2,  # Continuous autofocus (always active)
             "AfSpeed": 0,  # Normal speed - balanced and stable
             "AfRange": 0,  # Normal range (10cm to infinity) - good for whole plants
-            # Exposure for grow lights (LED/HPS) - FIXED for strobing
-            "AeEnable": False,  # Disable auto exposure to fix strobing
-            "ExposureTime": 4166,  # Reduced exposure: 4166µs (1/240s) for very bright lights
-                                   # Still syncs with 120Hz LED flicker (multiple of cycle)
-            "AnalogueGain": 1.0,  # Low gain for bright conditions
+            # Exposure for grow lights (LED/HPS)
+            "AeEnable": True,  # Auto exposure
+            "ExposureTime": 0,  # Auto (adjust for flicker: 8333 for 120Hz, 10000 for 100Hz lights)
+            "AnalogueGain": 1.0,  # Low gain for clean image
             # White balance for artificial grow lights - adjusted for blue tint
             "AwbEnable": True,
             "AwbMode": 3,  # Fluorescent mode - removes blue cast from LED grow lights
