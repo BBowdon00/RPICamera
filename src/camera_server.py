@@ -87,9 +87,9 @@ def start_camera_server(config):
                 f"-g 25 "                                 # Keyframe every 1s (25 frames at 25fps)
                 f"-keyint_min 25 "                        # Force keyframes every second
                 f"-sc_threshold 0 "                       # Disable scene change detection
-                f"-preset ultrafast "                     # Fastest encoding for low latency
+                f"-preset fast "                          # Fast encoding - good balance
                 f"-tune zerolatency "                     # Zero latency tuning
-                f"-crf 23 "                              # Good quality but faster encoding
+                f"-crf 18 "                              # High quality (lower = better)
                 f"-maxrate 6M -bufsize 12M "              # Smaller buffer for lower latency
                 f"-fflags +flush_packets+nobuffer "      # Aggressive flushing
                 f"-flush_packets 1 "                     # Force packet flushing
